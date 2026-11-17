@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Node Board</title>
+<style>
+:root{--bg:#0e1016;--panel:#151821;--panel2:#1b1f2a;--line:#272c3a;--line2:#353c4f;--text:#e7e9ef;--muted:#8a92a6;--accent:#6c8cff;--danger:#e5566a;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{display:flex;flex-direction:column;overflow:hidden}
+.toolbar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{font-weight:700;letter-spacing:.02em;display:flex;align-items:center;gap:7px;margin-right:2px}
+.brand svg{display:block}
+.title-input{background:transparent;border:1px solid transparent;font-weight:600;width:170px}
+.title-input:hover,.title-input:focus{border-color:var(--line);background:var(--panel2)}
+button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:6px 10px;font:inherit;cursor:pointer;white-space:nowrap}
+button:hover:not(:disabled){border-color:var(--line2);background:#222736}
+button:disabled{opacity:.45;cursor:default}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover:not(:disabled){background:#7d99ff;border-color:#7d99ff}
+button.danger{color:var(--danger);border-color:#4a2530;background:transparent}
+button.sm{padding:4px 8px;font-size:12px}
+button.x{background:transparent;border:0;color:var(--muted);padding:2px 6px;font-size:15px;line-height:1}
+button.x:hover:not(:disabled){color:var(--danger);background:transparent}
+.sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+.spacer{flex:1}
+.tlabel{display:flex;align-items:center;gap:6px;color:var(--muted)}
+select,input,textarea{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font:inherit;min-width:0}
+textarea{resize:vertical;width:100%}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+input[readonly]{color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}
+input[type=color]{padding:2px;width:34px;height:30px;cursor:pointer;flex:none}
+input[type=checkbox],input[type=radio]{accent-color:var(--accent);margin:0}
+#status{color:var(--muted);font-size:12px}
+main{flex:1;display:flex;min-height:0}
+#canvasWrap{position:relative;flex:1;min-width:0;background-color:var(--bg);background-image:radial-gradient(#262b39 1.1px,transparent 1.3px);overflow:hidden}
+#canvasWrap.dropping{outline:2px dashed var(--accent);outline-offset:-8px}
+#canvas{width:100%;height:100%;display:block;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+#canvas.panning{cursor:grabbing}
+.hint{position:absolute;left:12px;bottom:10px;color:var(--muted);font-size:11.5px;background:rgba(14,16,22,.8);padding:5px 9px;border-radius:7px;pointer-events:none;max-width:calc(100% - 200px)}
+.zoom{position:absolute;right:12px;bottom:10px;display:flex;gap:4px;align-items:center;background:rgba(21,24,33,.9);border:1px solid var(--line);border-radius:9px;padding:3px}
+.zoom button{border:0;background:transparent;padding:4px 9px}
+.zoom span{color:var(--muted);font-size:11.5px;min-width:42px;text-align:center}
+aside{width:350px;flex:none;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;border:0;border-radius:0;background:transparent;padding:10px;color:var(--muted);border-bottom:2px solid transparent}
+.tabs button:hover:not(:disabled){background:transparent;color:var(--text)}
+.tabs button.active{color:var(--text);border-bottom-color:var(--accent)}
+aside section{padding:14px;overflow:auto;flex:1}
+.h{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;margin:2px 0 10px;display:flex;justify-content:space-between;align-items:center}
+.h.mt{margin-top:20px}
+.f{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;color:var(--muted);font-size:12px}
+.f > input,.f > select{width:100%}
+.row{display:flex;gap:6px;align-items:center}
+.row > input:not([type=color]):not([type=checkbox]),.row > select{flex:1}
+.check{display:flex;gap:8px;align-items:center;margin-bottom:12px;cursor:pointer}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.swatch{width:20px;height:20px;padding:0;border-radius:50%;border:2px solid transparent;flex:none}
+.swatch:hover:not(:disabled){border-color:#fff}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block}
+.linklist{display:flex;flex-direction:column;gap:2px;margin-bottom:10px}
+.lrow{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;cursor:pointer}
+.lrow:hover{background:var(--panel2)}
+.lrow.hidden{opacity:.45}
+.lrow .other{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.lrow .lname{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+.lrow .dir{color:var(--muted);width:12px;text-align:center}
+.box{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px;display:flex;flex-direction:column;gap:7px}
+.danger-row{margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}
+.trow{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--line)}
+.trow .tname{flex:1}
+.trow .cnt{color:var(--muted);font-size:11.5px;min-width:22px;text-align:right}
+.def{display:flex;align-items:center;gap:4px;color:var(--muted);font-size:11.5px;cursor:pointer}
+.eye{background:transparent;border:0;padding:4px;color:var(--text);display:flex}
+.eye.off{color:var(--muted);opacity:.6}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px 4px 3px 9px;cursor:pointer}
+.chip button{padding:0 5px}
+table.ot{width:100%;border-collapse:collapse;margin-top:8px;font-size:12.5px}
+.ot th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:6px;border-bottom:1px solid var(--line)}
+.ot td{padding:6px;border-bottom:1px solid var(--line)}
+.ot tr.r{cursor:pointer}
+.ot tr.r:hover td{background:var(--panel2)}
+.ot tr.sel td{background:rgba(108,140,255,.14)}
+.ot .lv{font-variant-numeric:tabular-nums;color:var(--muted)}
+.ot .nm{display:flex;align-items:center;gap:7px}
+.tips{color:var(--muted);line-height:1.6}
+.tips kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font:11px ui-monospace,monospace;color:var(--text)}
+.tips ul{padding-left:18px;margin:6px 0 14px}
+/* SVG */
+.node{cursor:move}
+.node .body{fill:#1a1e29;stroke-width:1.5}
+.node .bar{pointer-events:none}
+.node text{pointer-events:none}
+.node .name{fill:var(--text);font-weight:600;font-size:14px}
+.node .desc{fill:var(--muted);font-size:12px}
+.node.sel .body{stroke-width:3;filter:drop-shadow(0 0 7px rgba(108,140,255,.6))}
+.node.target .body{stroke-width:3;stroke-dasharray:5 3}
+.handle{cursor:crosshair;stroke:#0e1016;stroke-width:2.5;opacity:.75}
+.node:hover .handle{opacity:1}
+.badge rect{fill:#2a3042;stroke:#3a4256}
+.badge text{fill:var(--text);font-size:10.5px;font-weight:700;text-anchor:middle}
+.link .hit{stroke:transparent;stroke-width:14;fill:none;cursor:pointer}
+.link .line{fill:none;stroke-width:2;pointer-events:none}
+.link.sel .line{stroke-width:3.5;filter:drop-shadow(0 0 4px rgba(255,255,255,.45))}
+.llabel{fill:var(--text);font-size:11.5px;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:var(--bg);stroke-width:5px;stroke-linejoin:round;pointer-events:none}
+#ghost{fill:none;stroke-width:2;stroke-dasharray:6 5;pointer-events:none}
+/* modal + toast */
+#modal{position:fixed;inset:0;background:rgba(5,6,10,.6);display:flex;align-items:center;justify-content:center;z-index:20;padding:20px}
+#modal[hidden]{display:none}
+#modal .card{background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:18px;width:min(560px,100%);max-height:90vh;display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+#modal h3{margin:0;font-size:15px}
+#modal .mbody{overflow:auto;color:var(--muted)}
+#modal textarea{height:300px;font:12px ui-monospace,monospace}
+#modal .mbtns{display:flex;justify-content:flex-end;gap:8px}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#232838;border:1px solid var(--line2);padding:8px 14px;border-radius:9px;opacity:0;transition:.2s;pointer-events:none;z-index:30}
+#toast.on{opacity:1;transform:translateX(-50%)}
+@media (max-width:780px){
+  main{flex-direction:column}
+  aside{width:100%;height:46vh;border-left:0;border-top:1px solid var(--line)}
+  .hint{display:none}
+}
+</style>
+</head>
+<body>
+<header class="toolbar">
+  <div class="brand">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6c8cff" stroke-width="2"><rect x="2" y="3" width="8" height="6" rx="2"/><rect x="14" y="15" width="8" height="6" rx="2"/><path d="M10 6h3a2 2 0 0 1 2 2v7"/></svg>
+    Node Board
+  </div>
+  <input id="docTitle" class="title-input" title="Board title (used as the file name)">
+  <span class="sep"></span>
+  <button id="btnNew" title="New board">New</button>
+  <button id="btnOpen" title="Open a .json file">Open…</button>
+  <input type="file" id="fileInput" accept=".json,application/json" hidden>
+  <button id="btnSave" title="Save as .json (Ctrl/Cmd+S)">Save JSON</button>
+  <button id="btnCopy" title="Copy JSON to clipboard">Copy JSON</button>
+  <span class="sep"></span>
+  <button id="btnAddNode" class="primary" title="Add node (N)">+ Node</button>
+  <label class="tlabel">New links: <select id="activeLinkType"></select></label>
+  <span class="spacer"></span>
+  <span id="status"></span>
+</header>
+
+<main>
+  <div id="canvasWrap">
+    <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+      <defs id="defs"></defs>
+      <g id="viewport">
+        <g id="linksLayer"></g>
+        <g id="nodesLayer"></g>
+        <path id="ghost" d=""/>
+      </g>
+    </svg>
+    <div class="hint">Double-click to add a node · drag a node's ● onto another to link · drag background to pan · scroll to zoom</div>
+    <div class="zoom">
+      <button id="zOut" title="Zoom out">−</button><span id="zPct">100%</span><button id="zIn" title="Zoom in">+</button><button id="zFit" title="Fit all (F)">Fit</button>
+    </div>
+  </div>
+  <aside>
+    <nav class="tabs">
+      <button data-tab="inspect" class="active">Inspect</button>
+      <button data-tab="types">Link types</button>
+      <button data-tab="outline">Hierarchy</button>
+    </nav>
+    <section id="tab-inspect"></section>
+    <section id="tab-types" hidden></section>
+    <section id="tab-outline" hidden></section>
+  </aside>
+</main>
+
+<div id="modal" hidden></div>
+<div id="toast"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- constants & helpers ---------- */
+const NODE_W = 180, NODE_H = 64;
+const PALETTE = ['#5B8DEF','#E8774A','#3FB68B','#C569D6','#E2B93B','#E25C6B','#4FB8C9','#8C93A8'];
+const STORE_KEY = 'nodeboard.v1';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const isHex = c => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c);
+const trunc = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const uid = () => (crypto && crypto.randomUUID) ? crypto.randomUUID() :
+  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); });
+const byName = (a, b) => (a.name || '').localeCompare(b.name || '', undefined, {numeric: true, sensitivity: 'base'});
+
+const svg = $('#canvas'), vp = $('#viewport'), linksLayer = $('#linksLayer'), nodesLayer = $('#nodesLayer'),
+      ghost = $('#ghost'), defs = $('#defs'), wrap = $('#canvasWrap');
+
+const EYE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.5 4.8-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+
+/* ---------- state ---------- */
+let state, view = {x: 0, y: 0, k: 1}, sel = null, activeTypeId = null, activeTab = 'inspect', drag = null;
+
+function emptyDoc() {
+  const main = {id: uid(), name: 'Main', color: '#8C93A8', visible: true};
+  return {format: 'node-board', version: 1, title: 'Untitled board', defaultLinkTypeId: main.id,
+          linkTypes: [main], nodes: [], links: [], hierarchy: {typeIds: [main.id]}, ui: {showLevels: false}, view: null};
+}
+
+function sampleDoc() {
+  const d = emptyDoc();
+  d.title = 'Sample board';
+  const main = d.linkTypes[0];
+  const dep = {id: uid(), name: 'Depends on', color: '#E8774A', visible: true};
+  d.linkTypes.push(dep);
+  const mk = (name, desc, color, x, y, isRoot = false) => { const n = {id: uid(), name, description: desc, color, isRoot, x, y}; d.nodes.push(n); return n; };
+  const p = mk('Project', 'Top of the tree. Marked as a hierarchy root.', '#5B8DEF', 0, 0, true);
+  const a = mk('Design', 'Sketches, specs', '#C569D6', -220, 170);
+  const b = mk('Build', 'Implementation work', '#3FB68B', 0, 170);
+  const c = mk('Docs', 'Write-ups', '#E2B93B', 220, 170);
+  const t = mk('Test', 'Verify everything', '#4FB8C9', 0, 340);
+  const L = (from, to, typeId, name = '') => d.links.push({id: uid(), name, from: from.id, to: to.id, typeId});
+  L(p, a, main.id, 'contains'); L(p, b, main.id, 'contains'); L(p, c, main.id, 'contains'); L(b, t, main.id);
+  L(b, a, dep.id, 'needs specs');
+  return d;
+}
+
+function normalize(d) {
+  if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('File is not a board (expected a JSON object).');
+  const out = emptyDoc();
+  out.linkTypes = [];
+  out.title = typeof d.title === 'string' && d.title.trim() ? d.title : 'Untitled board';
+  const seen = new Set();
+  for (const t of Array.isArray(d.linkTypes) ? d.linkTypes : []) {
+    if (!t || t.id == null || seen.has(String(t.id))) continue;
+    seen.add(String(t.id));
+    out.linkTypes.push({id: String(t.id), name: String(t.name ?? 'Type'), color: isHex(t.color) ? t.color : '#8C93A8', visible: t.visible !== false});
+  }
+  if (!out.linkTypes.length) out.linkTypes.push({id: uid(), name: 'Main', color: '#8C93A8', visible: true});
+  const typeIds = new Set(out.linkTypes.map(t => t.id));
+  out.defaultLinkTypeId = typeIds.has(String(d.defaultLinkTypeId)) ? String(d.defaultLinkTypeId) : out.linkTypes[0].id;
+  const nodeIds = new Set();
+  (Array.isArray(d.nodes) ? d.nodes : []).forEach((n, i) => {
+    if (!n || typeof n !== 'object') return;
+    let id = n.id != null ? String(n.id) : uid();
+    if (nodeIds.has(id)) id = uid();
+    nodeIds.add(id);
+    out.nodes.push({id, name: String(n.name ?? 'Node'), description: String(n.description ?? ''),
+      color: isHex(n.color) ? n.color : PALETTE[i % PALETTE.length], isRoot: !!n.isRoot,
+      x: Number.isFinite(+n.x) ? +n.x : (i % 6) * 220, y: Number.isFinite(+n.y) ? +n.y : Math.floor(i / 6) * 140});
+  });
+  const linkIds = new Set();
+  for (const l of Array.isArray(d.links) ? d.links : []) {
+    if (!l || !nodeIds.has(String(l.from)) || !nodeIds.has(String(l.to)) || String(l.from) === String(l.to)) continue;
+    let id = l.id != null ? String(l.id) : uid();
+    if (linkIds.has(id)) id = uid();
+    linkIds.add(id);
+    out.links.push({id, name: String(l.name ?? ''), from: String(l.from), to: String(l.to),
+      typeId: typeIds.has(String(l.typeId)) ? String(l.typeId) : out.defaultLinkTypeId});
+  }
+  const hIds = (d.hierarchy && Array.isArray(d.hierarchy.typeIds) ? d.hierarchy.typeIds.map(String) : []).filter(id => typeIds.has(id));
+  out.hierarchy = {typeIds: hIds.length ? hIds : [out.defaultLinkTypeId]};
+  out.ui = {showLevels: !!(d.ui && d.ui.showLevels)};
+  const v = d.view;
+  out.view = v && [v.x, v.y, v.k].every(n => Number.isFinite(+n)) ? {x: +v.x, y: +v.y, k: clamp(+v.k, .15, 3)} : null;
+  return out;
+}
+
+function serialize() {
+  return {format: 'node-board', version: 1, title: state.title, savedAt: new Date().toISOString(),
+    defaultLinkTypeId: state.defaultLinkTypeId, linkTypes: state.linkTypes, nodes: state.nodes, links: state.links,
+    hierarchy: state.hierarchy, ui: state.ui, view: {x: Math.round(view.x), y: Math.round(view.y), k: +view.k.toFixed(3)}};
+}
+
+let persistTimer = null;
+function persist() {
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => { try { localStorage.setItem(STORE_KEY, JSON.stringify(serialize())); } catch (e) {} }, 250);
+  updateStatus();
+}
+
+const nodeById = id => state.nodes.find(n => n.id === id);
+const linkById = id => state.links.find(l => l.id === id);
+const typeById = id => state.linkTypes.find(t => t.id === id);
+
+/* ---------- geometry ---------- */
+function toWorld(e) {
+  const r = svg.getBoundingClientRect();
+  return {x: (e.clientX - r.left - view.x) / view.k, y: (e.clientY - r.top - view.y) / view.k};
+}
+function clipToRect(cx, cy, tx, ty, pad) {
+  const dx = tx - cx, dy = ty - cy;
+  if (!dx && !dy) return {x: cx, y: cy};
+  const hw = NODE_W / 2 + pad, hh = NODE_H / 2 + pad;
+  const s = Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
+  return {x: cx + dx * s, y: cy + dy * s};
+}
+
+/* ---------- hierarchy ---------- */
+function computeHierarchy() {
+  const follow = new Set(state.hierarchy.typeIds);
+  const adj = new Map(), parents = new Map(), indeg = new Map();
+  state.nodes.forEach(n => { adj.set(n.id, []); parents.set(n.id, []); indeg.set(n.id, 0); });
+  for (const l of state.links) {
+    if (!follow.has(l.typeId) || !adj.has(l.from) || !adj.has(l.to)) continue;
+    adj.get(l.from).push(l.to); parents.get(l.to).push(l.from); indeg.set(l.to, indeg.get(l.to) + 1);
+  }
+  let roots = state.nodes.filter(n => n.isRoot);
+  const auto = !roots.length;
+  if (auto) roots = state.nodes.filter(n => indeg.get(n.id) === 0);
+  roots = [...roots].sort(byName);
+  const level = new Map(), q = [];
+  roots.forEach(r => { level.set(r.id, 0); q.push(r.id); });
+  for (let i = 0; i < q.length; i++) {
+    const u = q[i];
+    for (const v of adj.get(u)) if (!level.has(v)) { level.set(v, level.get(u) + 1); q.push(v); }
+  }
+  const nm = new Map(state.nodes.map(n => [n.id, n]));
+  const rows = [];
+  for (const id of q) { const L = level.get(id); (rows[L] || (rows[L] = [])).push(nm.get(id)); }
+  const pos = new Map();
+  rows.forEach((arr, L) => {
+    if (L === 0) arr.sort(byName);
+    else {
+      const score = new Map(arr.map(n => {
+        const ps = parents.get(n.id).filter(p => level.get(p) === L - 1).map(p => pos.get(p));
+        return [n.id, ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : 1e9];
+      }));
+      arr.sort((a, b) => score.get(a.id) - score.get(b.id) || byName(a, b));
+    }
+    arr.forEach((n, i) => pos.set(n.id, i));
+  });
+  const unreached = state.nodes.filter(n => !level.has(n.id)).sort(byName);
+  return {level, rows, unreached, roots, auto, adj};
+}
+
+function applyHierarchyLayout() {
+  if (!state.nodes.length) return toast('Nothing to lay out yet');
+  const {rows, unreached} = computeHierarchy();
+  const gx = NODE_W + 40, gy = NODE_H + 96;
+  rows.forEach((arr, L) => arr.forEach((n, i) => { n.x = Math.round((i - (arr.length - 1) / 2) * gx - NODE_W / 2); n.y = L * gy; }));
+  const perRow = 6, baseY = (rows.length + (rows.length ? 0.5 : 0)) * gy;
+  unreached.forEach((n, i) => {
+    const r = Math.floor(i / perRow), inRow = Math.min(perRow, unreached.length - r * perRow);
+    n.x = Math.round(((i % perRow) - (inRow - 1) / 2) * gx - NODE_W / 2); n.y = Math.round(baseY + r * gy);
+  });
+  fitView(); persist(); renderSidebar();
+  toast(unreached.length ? `Laid out ${rows.length} level(s); ${unreached.length} unreached node(s) placed below` : `Laid out ${rows.length} level(s)`);
+}
+
+/* ---------- canvas rendering ---------- */
+function renderCanvas() {
+  vp.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`);
+  wrap.style.backgroundSize = `${24 * view.k}px ${24 * view.k}px`;
+  wrap.style.backgroundPosition = `${view.x}px ${view.y}px`;
+  $('#zPct').textContent = Math.round(view.k * 100) + '%';
+
+  const nm = new Map(state.nodes.map(n => [n.id, n]));
+  const tIndex = new Map(state.linkTypes.map((t, i) => [t.id, i]));
+  defs.innerHTML = state.linkTypes.map((t, i) =>
+    `<marker id="arr-${i}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse" style="overflow:visible"><path d="M0,0 L10,5 L0,10 z" fill="${t.color}" transform="scale(1.3) translate(-2.3,-1.15)"/></marker>`).join('');
+
+  // links, grouped by unordered node pair so parallel links fan out
+  const groups = new Map();
+  for (const l of state.links) {
+    const t = typeById(l.typeId);
+    if (!t || !t.visible || !nm.has(l.from) || !nm.has(l.to)) continue;
+    const k = l.from < l.to ? l.from + '|' + l.to : l.to + '|' + l.from;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(l);
+  }
+  let html = '';
+  for (const arr of groups.values()) {
+    arr.forEach((l, i) => {
+      const a = nm.get(l.from), b = nm.get(l.to), t = typeById(l.typeId);
+      const ax = a.x + NODE_W / 2, ay = a.y + NODE_H / 2, bx = b.x + NODE_W / 2, by = b.y + NODE_H / 2;
+      const [p, q] = l.from < l.to ? [a, b] : [b, a];
+      const dx = q.x - p.x, dy = q.y - p.y, len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len, ny = dx / len, off = (i - (arr.length - 1) / 2) * 34;
+      const cx = (ax + bx) / 2 + nx * off * 2, cy = (ay + by) / 2 + ny * off * 2;
+      const s = clipToRect(ax, ay, cx, cy, 2), e = clipToRect(bx, by, cx, cy, 4);
+      const lx = .25 * s.x + .5 * cx + .25 * e.x, ly = .25 * s.y + .5 * cy + .25 * e.y;
+      const d = `M${s.x.toFixed(1)},${s.y.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${e.x.toFixed(1)},${e.y.toFixed(1)}`;
+      const isSel = sel && sel.kind === 'link' && sel.id === l.id;
+      html += `<g class="link${isSel ? ' sel' : ''}" data-id="${esc(l.id)}"><path class="hit" d="${d}"/><path class="line" d="${d}" stroke="${t.color}" marker-end="url(#arr-${tIndex.get(t.id)})"/>` +
+              (l.name ? `<text class="llabel" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}">${esc(trunc(l.name, 32))}</text>` : '') + `</g>`;
+    });
+  }
+  linksLayer.innerHTML = html;
+
+  const lv = state.ui.showLevels ? computeHierarchy().level : null;
+  const targetId = drag && drag.mode === 'link' ? drag.over : null;
+  nodesLayer.innerHTML = state.nodes.map(n => {
+    const isSel = sel && sel.kind === 'node' && sel.id === n.id;
+    const desc = n.description.replace(/\s+/g, ' ').trim();
+    let badge = '';
+    if (lv) {
+      const L = lv.get(n.id), txt = L === undefined ? '—' : 'L' + L, w = 12 + txt.length * 6.5;
+      badge = `<g class="badge" transform="translate(${NODE_W - w - 8},-9)"><rect width="${w}" height="18" rx="9"/><text x="${w / 2}" y="12.5">${txt}</text></g>`;
+    }
+    return `<g class="node${isSel ? ' sel' : ''}${targetId === n.id ? ' target' : ''}" data-id="${esc(n.id)}" transform="translate(${n.x},${n.y})">` +
+      `<rect class="body" width="${NODE_W}" height="${NODE_H}" rx="10" style="stroke:${n.color}"/>` +
+      `<rect class="bar" x="0" y="0" width="7" height="${NODE_H}" rx="3.5" fill="${n.color}"/>` +
+      `<text class="name" x="18" y="${desc ? 27 : 37}">${n.isRoot ? '★ ' : ''}${esc(trunc(n.name || 'Untitled', n.isRoot ? 19 : 21))}</text>` +
+      (desc ? `<text class="desc" x="18" y="46">${esc(trunc(desc, 27))}</text>` : '') + badge +
+      `<circle class="handle" cx="${NODE_W}" cy="${NODE_H / 2}" r="7" fill="${n.color}"><title>Drag onto another node to link</title></circle></g>`;
+  }).join('');
+}
+
+/* ---------- mutations ---------- */
+function addNode(x, y) {
+  const n = {id: uid(), name: 'Node ' + (state.nodes.length + 1), description: '', color: PALETTE[state.nodes.length % PALETTE.length],
+             isRoot: false, x: Math.round(x - NODE_W / 2), y: Math.round(y - NODE_H / 2)};
+  state.nodes.push(n);
+  select('node', n.id, {tab: true});
+  persist();
+  const i = $('#iName'); if (i) { i.focus(); i.select(); }
+}
+function addNodeCenter() {
+  const r = svg.getBoundingClientRect(), jitter = (state.nodes.length % 5) * 22;
+  addNode((r.width / 2 - view.x) / view.k + jitter, (r.height / 2 - view.y) / view.k + jitter);
+}
+function addLink(from, to, typeId, name = '') {
+  if (from === to) return toast('A node cannot link to itself');
+  const t = typeById(typeId) || typeById(state.defaultLinkTypeId);
+  const l = {id: uid(), name, from, to, typeId: t.id};
+  state.links.push(l);
+  if (!t.visible) { t.visible = true; toast(`"${t.name}" links were hidden — now shown`); }
+  persist();
+  return l;
+}
+function deleteNode(id) {
+  state.nodes = state.nodes.filter(n => n.id !== id);
+  state.links = state.links.filter(l => l.from !== id && l.to !== id);
+  if (sel && sel.id === id) sel = null;
+  persist(); renderAll();
+}
+function deleteLink(id) {
+  state.links = state.links.filter(l => l.id !== id);
+  if (sel && sel.id === id) sel = null;
+  persist(); renderAll();
+}
+function addLinkType() {
+  const used = new Set(state.linkTypes.map(t => t.color.toUpperCase()));
+  const color = PALETTE.find(c => !used.has(c)) || PALETTE[state.linkTypes.length % PALETTE.length];
+  const t = {id: uid(), name: 'Type ' + (state.linkTypes.length + 1), color, visible: true};
+  state.linkTypes.push(t);
+  persist(); renderTypeSelect(); renderAll();
+  const inputs = document.querySelectorAll('#tab-types .tname'); const last = inputs[inputs.length - 1];
+  if (last) { last.focus(); last.select(); }
+}
+function deleteLinkType(id) {
+  if (id === state.defaultLinkTypeId) return;
+  const t = typeById(id), n = state.links.filter(l => l.typeId === id).length;
+  const doIt = () => {
+    state.links.forEach(l => { if (l.typeId === id) l.typeId = state.defaultLinkTypeId; });
+    state.linkTypes = state.linkTypes.filter(x => x.id !== id);
+    state.hierarchy.typeIds = state.hierarchy.typeIds.filter(x => x !== id);
+    if (!state.hierarchy.typeIds.length) state.hierarchy.typeIds = [state.defaultLinkTypeId];
+    if (activeTypeId === id) activeTypeId = state.defaultLinkTypeId;
+    persist(); renderTypeSelect(); renderAll();
+  };
+  if (!n) return doIt();
+  modal({title: `Delete link type "${t.name}"?`, html: `${n} link(s) use this type. They will be moved to the default type "${esc(typeById(state.defaultLinkTypeId).name)}".`,
+    buttons: [{label: 'Cancel'}, {label: 'Delete type', cls: 'danger', onClick: doIt}]});
+}
+
+/* ---------- selection & view ---------- */
+function select(kind, id, opts = {}) {
+  sel = kind ? {kind, id} : null;
+  if (opts.tab && kind) showTab('inspect', false);
+  renderCanvas(); renderSidebar();
+}
+function centerOn(n) {
+  const r = svg.getBoundingClientRect();
+  view.x = r.width / 2 - (n.x + NODE_W / 2) * view.k;
+  view.y = r.height / 2 - (n.y + NODE_H / 2) * view.k;
+  renderCanvas(); persist();
+}
+function fitView() {
+  const r = svg.getBoundingClientRect();
+  if (!state.nodes.length) { view = {x: r.width / 2, y: r.height / 2, k: 1}; renderCanvas(); return; }
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const n of state.nodes) { x0 = Math.min(x0, n.x); y0 = Math.min(y0, n.y); x1 = Math.max(x1, n.x + NODE_W); y1 = Math.max(y1, n.y + NODE_H); }
+  const pad = 60, w = x1 - x0, h = y1 - y0;
+  const k = clamp(Math.min((r.width - pad * 2) / w, (r.height - pad * 2) / h), .15, 1.25);
+  view = {k, x: (r.width - w * k) / 2 - x0 * k, y: (r.height - h * k) / 2 - y0 * k};
+  renderCanvas(); persist();
+}
+function zoomBy(f, cx, cy) {
+  const r = svg.getBoundingClientRect();
+  if (cx === undefined) { cx = r.width / 2; cy = r.height / 2; }
+  const k2 = clamp(view.k * f, .15, 3);
+  view.x = cx - (cx - view.x) * k2 / view.k; view.y = cy - (cy - view.y) * k2 / view.k; view.k = k2;
+  renderCanvas(); persist();
+}
+
+/* ---------- pointer interaction ---------- */
+svg.addEventListener('pointerdown', e => {
+  if (e.button !== 0 && e.button !== 1) return;
+  const w = toWorld(e);
+  const handle = e.target.closest('.handle'), ng = e.target.closest('.node'), lg = e.target.closest('.link');
+  if (e.button === 0 && handle && ng) {
+    drag = {mode: 'link', from: ng.dataset.id, over: null};
+    updateGhost(w);
+  } else if (e.button === 0 && ng) {
+    const n = nodeById(ng.dataset.id);
+    if (!sel || sel.id !== n.id) select('node', n.id, {tab: activeTab !== 'outline'});
+    drag = {mode: 'node', id: n.id, dx: w.x - n.x, dy: w.y - n.y, moved: false};
+  } else if (e.button === 0 && lg) {
+    select('link', lg.dataset.id, {tab: true});
+    return;
+  } else {
+    if (e.button === 0 && sel) select(null);
+    drag = {mode: 'pan', sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y};
+    svg.classList.add('panning');
+  }
+  svg.setPointerCapture(e.pointerId);
+});
+svg.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const w = toWorld(e);
+  if (drag.mode === 'node') {
+    const n = nodeById(drag.id); if (!n) return;
+    n.x = Math.round(w.x - drag.dx); n.y = Math.round(w.y - drag.dy); drag.moved = true;
+    renderCanvas();
+  } else if (drag.mode === 'pan') {
+    view.x = drag.vx + e.clientX - drag.sx; view.y = drag.vy + e.clientY - drag.sy;
+    renderCanvas();
+  } else if (drag.mode === 'link') {
+    const el = document.elementFromPoint(e.clientX, e.clientY), ng = el && el.closest && el.closest('.node');
+    const over = ng && ng.dataset.id !== drag.from ? ng.dataset.id : null;
+    if (over !== drag.over) { drag.over = over; renderCanvas(); }
+    updateGhost(w);
+  }
+});
+function endDrag(e) {
+  if (!drag) return;
+  const d = drag; drag = null;
+  svg.classList.remove('panning');
+  if (d.mode === 'link') {
+    ghost.setAttribute('d', '');
+    if (d.over) { const l = addLink(d.from, d.over, activeTypeId); if (l) select('link', l.id, {tab: true}); }
+    else renderCanvas();
+  } else if (d.mode === 'node' && d.moved) persist();
+  else if (d.mode === 'pan') persist();
+}
+svg.addEventListener('pointerup', endDrag);
+svg.addEventListener('pointercancel', endDrag);
+function updateGhost(w) {
+  const n = nodeById(drag.from), t = typeById(activeTypeId);
+  ghost.setAttribute('d', `M${n.x + NODE_W},${n.y + NODE_H / 2} L${w.x},${w.y}`);
+  ghost.setAttribute('stroke', t ? t.color : '#fff');
+}
+svg.addEventListener('dblclick', e => {
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const ng = el && el.closest && el.closest('.node');
+  if (ng) { select('node', ng.dataset.id, {tab: true}); const i = $('#iName'); if (i) { i.focus(); i.select(); } return; }
+  if (el && el.closest && el.closest('.link')) return;
+  const w = toWorld(e); addNode(w.x, w.y);
+});
+svg.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = svg.getBoundingClientRect();
+  const dy = e.deltaY * (e.deltaMode === 1 ? 33 : 1);
+  if (e.ctrlKey || (!e.shiftKey && Math.abs(e.deltaX) < 1)) {
+    zoomBy(Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX - r.left, e.clientY - r.top);
+  } else {
+    view.x -= e.deltaX; view.y -= e.deltaY; renderCanvas(); persist();
+  }
+}, {passive: false});
+
+/* ---------- sidebar ---------- */
+function showTab(name, render = true) {
+  activeTab = name;
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  ['inspect', 'types', 'outline'].forEach(t => { $('#tab-' + t).hidden = t !== name; });
+  if (render) renderSidebar();
+}
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
+function renderSidebar() {
+  if (activeTab === 'inspect') renderInspector();
+  else if (activeTab === 'types') renderTypes();
+  else renderOutline();
+}
+function renderAll() { renderCanvas(); renderSidebar(); updateStatus(); }
+
+const typeOptions = selId => state.linkTypes.map(t =>
+  `<option value="${esc(t.id)}"${t.id === selId ? ' selected' : ''}>${esc(t.name)}${t.id === state.defaultLinkTypeId ? ' (default)' : ''}</option>`).join('');
+const nodeOptions = (selId, excludeId) => [...state.nodes].filter(n => n.id !== excludeId).sort(byName).map(n =>
+  `<option value="${esc(n.id)}"${n.id === selId ? ' selected' : ''}>${esc(n.name || 'Untitled')}</option>`).join('');
+
+function renderInspector() {
+  const el = $('#tab-inspect');
+  if (sel && sel.kind === 'node' && nodeById(sel.id)) return renderNodeInspector(el, nodeById(sel.id));
+  if (sel && sel.kind === 'link' && linkById(sel.id)) return renderLinkInspector(el, linkById(sel.id));
+  sel = null;
+  el.innerHTML = `<div class="h">Nothing selected</div>
+  <div class="tips">Click a node or link to edit it.
+  <ul>
+    <li><b>Add node:</b> double-click the canvas, the <b>+ Node</b> button, or <kbd>N</kbd></li>
+    <li><b>Link:</b> drag a node's colored ● handle onto another node. The type comes from <b>New links</b> in the toolbar.</li>
+    <li><b>Pan:</b> drag empty space · <b>Zoom:</b> scroll / pinch · <kbd>F</kbd> fit all</li>
+    <li><b>Delete:</b> <kbd>Del</kbd> / <kbd>Backspace</kbd> · <kbd>Esc</kbd> deselect</li>
+    <li><b>Save:</b> <kbd>Ctrl/⌘ S</kbd> · open a file or drop a .json onto the canvas</li>
+  </ul>
+  Work is also kept in this browser between visits, but the JSON file is the real save.</div>`;
+}
+
+function linkRows(list, dir) {
+  return list.map(l => {
+    const t = typeById(l.typeId), other = nodeById(dir === 'out' ? l.to : l.from);
+    return `<div class="lrow${t.visible ? '' : ' hidden'}" data-link="${esc(l.id)}" title="${esc(t.name)}${t.visible ? '' : ' (hidden)'}">
+      <span class="dot" style="background:${t.color}"></span><span class="dir">${dir === 'out' ? '→' : '←'}</span>
+      <span class="other">${esc(other.name || 'Untitled')}</span><span class="lname muted">${esc(l.name || t.name)}</span>
+      <button class="x" data-del="${esc(l.id)}" title="Delete link">×</button></div>`;
+  }).join('');
+}
+
+function renderNodeInspector(el, n) {
+  const out = state.links.filter(l => l.from === n.id), inc = state.links.filter(l => l.to === n.id);
+  const hasOthers = state.nodes.length > 1;
+  el.innerHTML = `<div class="h">Node</div>
+  <div class="f">GUID<div class="row"><input id="iGuid" readonly value="${esc(n.id)}"><button class="sm" id="bCopyGuid">Copy</button></div></div>
+  <label class="f">Name<input id="iName" value="${esc(n.name)}"></label>
+  <label class="f">Description<textarea id="iDesc" rows="4">${esc(n.description)}</textarea></label>
+  <div class="f">Color<div class="row"><input type="color" id="iColor" value="${n.color}">${PALETTE.map(c => `<button class="swatch" data-c="${c}" style="background:${c}" title="${c}"></button>`).join('')}</div></div>
+  <label class="check"><input type="checkbox" id="iRoot"${n.isRoot ? ' checked' : ''}> Hierarchy root ★</label>
+  <div class="h mt">Links <span>${out.length} out · ${inc.length} in</span></div>
+  <div class="linklist" id="nodeLinks">${linkRows(out, 'out')}${linkRows(inc, 'in')}${!out.length && !inc.length ? '<div class="muted small">No links yet. Drag the ● handle onto another node, or add one here.</div>' : ''}</div>
+  <div class="box">
+    <div class="row"><select id="alDir" style="flex:none"><option value="out">→ to</option><option value="in">← from</option></select><select id="alNode"${hasOthers ? '' : ' disabled'}>${hasOthers ? nodeOptions(null, n.id) : '<option>No other nodes</option>'}</select></div>
+    <div class="row"><select id="alType">${typeOptions(activeTypeId)}</select></div>
+    <div class="row"><input id="alName" placeholder="Link name (optional)"><button id="bAddLink"${hasOthers ? '' : ' disabled'}>Add link</button></div>
+  </div>
+  <div class="danger-row"><button class="danger" id="bDelNode">Delete node</button></div>`;
+
+  $('#bCopyGuid').onclick = () => copyText(n.id, 'GUID copied');
+  $('#iName').oninput = e => { n.name = e.target.value; renderCanvas(); persist(); };
+  $('#iDesc').oninput = e => { n.description = e.target.value; renderCanvas(); persist(); };
+  $('#iColor').oninput = e => { n.color = e.target.value; renderCanvas(); persist(); };
+  el.querySelectorAll('.swatch').forEach(b => b.onclick = () => { n.color = b.dataset.c; $('#iColor').value = n.color; renderCanvas(); persist(); });
+  $('#iRoot').onchange = e => { n.isRoot = e.target.checked; renderCanvas(); persist(); };
+  $('#nodeLinks').onclick = e => {
+    const del = e.target.closest('[data-del]');
+    if (del) { e.stopPropagation(); return deleteLink(del.dataset.del); }
+    const row = e.target.closest('[data-link]'); if (row) select('link', row.dataset.link);
+  };
+  const add = () => {
+    if (!hasOthers) return;
+    const other = $('#alNode').value, dir = $('#alDir').value;
+    const l = dir === 'out' ? addLink(n.id, other, $('#alType').value, $('#alName').value.trim()) : addLink(other, n.id, $('#alType').value, $('#alName').value.trim());
+    if (l) { renderAll(); toast('Link added'); }
+  };
+  $('#bAddLink').onclick = add;
+  $('#alName').onkeydown = e => { if (e.key === 'Enter') add(); };
+  $('#bDelNode').onclick = () => deleteNode(n.id);
+}
+
+function renderLinkInspector(el, l) {
+  const t = typeById(l.typeId);
+  el.innerHTML = `<div class="h">Link <span class="row" style="gap:6px;text-transform:none;letter-spacing:0;font-weight:500"><span class="dot" style="background:${t.color}"></span>${esc(t.name)}${t.visible ? '' : ' (hidden)'}</span></div>
+  <div class="f">GUID<div class="row"><input readonly value="${esc(l.id)}"><button class="sm" id="bCopyGuid">Copy</button></div></div>
+  <label class="f">Name<input id="lName" value="${esc(l.name)}" placeholder="e.g. contains, depends on…"></label>
+  <label class="f">Type<select id="lType">${typeOptions(l.typeId)}</select></label>
+  <label class="f">From<select id="lFrom">${nodeOptions(l.from, l.to)}</select></label>
+  <label class="f">To<select id="lTo">${nodeOptions(l.to, l.from)}</select></label>
+  <div class="row"><button id="bSwap">⇄ Reverse direction</button><button id="bGoFrom">Go to “from”</button></div>
+  <div class="danger-row"><button class="danger" id="bDelLink">Delete link</button></div>`;
+  $('#bCopyGuid').onclick = () => copyText(l.id, 'GUID copied');
+  $('#lName').oninput = e => { l.name = e.target.value; renderCanvas(); persist(); };
+  $('#lType').onchange = e => { l.typeId = e.target.value; const tt = typeById(l.typeId); if (!tt.visible) toast(`"${tt.name}" is hidden — show it under Link types`); renderAll(); persist(); };
+  $('#lFrom').onchange = e => { l.from = e.target.value; renderAll(); persist(); };
+  $('#lTo').onchange = e => { l.to = e.target.value; renderAll(); persist(); };
+  $('#bSwap').onclick = () => { [l.from, l.to] = [l.to, l.from]; renderAll(); persist(); };
+  $('#bGoFrom').onclick = () => { const n = nodeById(l.from); select('node', n.id); centerOn(n); };
+  $('#bDelLink').onclick = () => deleteLink(l.id);
+  if (!t.visible) toast(`This link's type "${t.name}" is hidden on the canvas`);
+}
+
+function renderTypes() {
+  const el = $('#tab-types');
+  const counts = new Map(); state.links.forEach(l => counts.set(l.typeId, (counts.get(l.typeId) || 0) + 1));
+  el.innerHTML = `<div class="h">Link types</div>
+  <div class="muted small" style="margin-bottom:8px">The <b>default</b> type is the main link type: it's preselected for new links and takes over links from deleted types. The eye shows/hides a type on the canvas.</div>
+  <div id="typeList">${state.linkTypes.map(t => {
+    const isDef = t.id === state.defaultLinkTypeId;
+    return `<div class="trow" data-id="${esc(t.id)}">
+      <button class="eye${t.visible ? '' : ' off'}" data-act="eye" title="${t.visible ? 'Hide' : 'Show'} on canvas">${t.visible ? EYE : EYE_OFF}</button>
+      <input type="color" data-act="color" value="${t.color}">
+      <input class="tname" data-act="name" value="${esc(t.name)}">
+      <label class="def" title="Make this the default (main) link type"><input type="radio" name="deftype" data-act="def"${isDef ? ' checked' : ''}>default</label>
+      <span class="cnt" title="Links of this type">${counts.get(t.id) || 0}</span>
+      <button class="x" data-act="del" title="${isDef ? 'The default type cannot be deleted' : 'Delete type'}"${isDef ? ' disabled' : ''}>×</button></div>`;
+  }).join('')}</div>
+  <div class="row" style="margin-top:12px"><button id="bAddType" class="primary">+ Add link type</button><span class="spacer"></span><button class="sm" id="bShowAll">Show all</button><button class="sm" id="bOnlyDef">Only default</button></div>`;
+  const list = $('#typeList');
+  const tOf = e => typeById(e.target.closest('.trow').dataset.id);
+  list.oninput = e => {
+    const act = e.target.dataset.act, t = tOf(e); if (!t) return;
+    if (act === 'name') { t.name = e.target.value; renderTypeSelect(); persist(); }
+    if (act === 'color') { t.color = e.target.value; renderCanvas(); persist(); }
+  };
+  list.onchange = e => {
+    if (e.target.dataset.act === 'def') { state.defaultLinkTypeId = tOf(e).id; persist(); renderTypeSelect(); renderTypes(); }
+  };
+  list.onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const t = tOf(e); if (!t) return;
+    if (b.dataset.act === 'eye') { t.visible = !t.visible; persist(); renderCanvas(); renderTypes(); }
+    if (b.dataset.act === 'del') deleteLinkType(t.id);
+  };
+  $('#bAddType').onclick = addLinkType;
+  $('#bShowAll').onclick = () => { state.linkTypes.forEach(t => t.visible = true); persist(); renderAll(); };
+  $('#bOnlyDef').onclick = () => { state.linkTypes.forEach(t => t.visible = t.id === state.defaultLinkTypeId); persist(); renderAll(); };
+}
+
+function renderOutline() {
+  const el = $('#tab-outline');
+  const h = computeHierarchy();
+  const follow = new Set(state.hierarchy.typeIds);
+  const selNode = sel && sel.kind === 'node' ? nodeById(sel.id) : null;
+  let idx = 0, rowsHtml = '';
+  const row = (n, L) => {
+    const kids = h.adj.get(n.id).length;
+    return `<tr class="r${selNode && selNode.id === n.id ? ' sel' : ''}" data-id="${esc(n.id)}"><td class="lv">${++idx}</td><td class="lv">${L}</td>
+      <td><span class="nm"><span class="dot" style="background:${n.color}"></span>${n.isRoot ? '★ ' : ''}${esc(n.name || 'Untitled')}</span></td><td class="lv">${kids || ''}</td></tr>`;
+  };
+  h.rows.forEach((arr, L) => arr.forEach(n => rowsHtml += row(n, L)));
+  h.unreached.forEach(n => rowsHtml += row(n, '—'));
+  el.innerHTML = `<div class="h">Hierarchy</div>
+  <div class="muted small" style="margin-bottom:12px">Levels count up from the root nodes (level 0), following links <b>from → to</b> of the checked types. A node's level is its shortest distance from a root.</div>
+  <div class="f">Follow link types<div class="chips" id="hTypes">${state.linkTypes.map(t =>
+    `<label class="chip" style="padding-right:9px"><input type="checkbox" data-id="${esc(t.id)}"${follow.has(t.id) ? ' checked' : ''}><span class="dot" style="background:${t.color}"></span>${esc(t.name)}</label>`).join('')}</div></div>
+  <div class="f">Roots ${h.auto ? '<span class="small">(none marked — using every node with no incoming link)</span>' : ''}
+    <div class="chips" id="hRoots">${h.auto ? h.roots.map(n => `<span class="chip" data-id="${esc(n.id)}" style="padding-right:9px;opacity:.75">${esc(n.name || 'Untitled')}</span>`).join('') || '<span class="muted">—</span>'
+      : h.roots.map(n => `<span class="chip" data-id="${esc(n.id)}">★ ${esc(n.name || 'Untitled')}<button class="x" data-unroot="${esc(n.id)}" title="Unmark root">×</button></span>`).join('')}</div>
+    <div class="row"><button class="sm" id="bMarkRoot"${selNode ? '' : ' disabled'}>${selNode && selNode.isRoot ? 'Unmark' : 'Mark'} selected node as root</button></div></div>
+  <div class="row" style="margin:4px 0 6px"><button class="primary" id="bLayout">Apply hierarchy layout</button><label class="check" style="margin:0 0 0 6px"><input type="checkbox" id="hShow"${state.ui.showLevels ? ' checked' : ''}> Show levels on nodes</label></div>
+  ${state.nodes.length ? `<table class="ot"><thead><tr><th>#</th><th>Lvl</th><th>Node</th><th title="Children">Ch</th></tr></thead><tbody id="hBody">${rowsHtml}</tbody></table>` : '<div class="muted small" style="margin-top:12px">No nodes yet.</div>'}`;
+
+  $('#hTypes').onchange = e => {
+    const id = e.target.dataset.id; if (!id) return;
+    const s = new Set(state.hierarchy.typeIds);
+    e.target.checked ? s.add(id) : s.delete(id);
+    state.hierarchy.typeIds = state.linkTypes.map(t => t.id).filter(x => s.has(x));
+    persist(); renderCanvas(); renderOutline();
+  };
+  $('#hRoots').onclick = e => {
+    const un = e.target.closest('[data-unroot]');
+    if (un) { nodeById(un.dataset.unroot).isRoot = false; persist(); renderAll(); return; }
+    const c = e.target.closest('[data-id]'); if (c) { const n = nodeById(c.dataset.id); select('node', n.id); centerOn(n); }
+  };
+  $('#bMarkRoot').onclick = () => { if (selNode) { selNode.isRoot = !selNode.isRoot; persist(); renderAll(); } };
+  $('#bLayout').onclick = applyHierarchyLayout;
+  $('#hShow').onchange = e => { state.ui.showLevels = e.target.checked; persist(); renderCanvas(); };
+  const body = $('#hBody');
+  if (body) body.onclick = e => { const r = e.target.closest('tr[data-id]'); if (r) { const n = nodeById(r.dataset.id); select('node', n.id); centerOn(n); } };
+}
+
+/* ---------- toolbar ---------- */
+function renderTypeSelect() {
+  if (!typeById(activeTypeId)) activeTypeId = state.defaultLinkTypeId;
+  $('#activeLinkType').innerHTML = typeOptions(activeTypeId);
+}
+$('#activeLinkType').onchange = e => { activeTypeId = e.target.value; };
+$('#docTitle').oninput = e => { state.title = e.target.value; persist(); };
+$('#btnAddNode').onclick = addNodeCenter;
+$('#zIn').onclick = () => zoomBy(1.2);
+$('#zOut').onclick = () => zoomBy(1 / 1.2);
+$('#zFit').onclick = fitView;
+$('#btnNew').onclick = () => modal({title: 'Start a new board?', html: 'The current board will be cleared. Save it as JSON first if you want to keep it.',
+  buttons: [{label: 'Cancel'}, {label: 'Save first', onClick: () => saveJson()}, {label: 'New board', cls: 'danger', onClick: () => loadDoc(emptyDoc(), true)}]});
+$('#btnOpen').onclick = () => $('#fileInput').click();
+$('#fileInput').onchange = e => { const f = e.target.files[0]; if (f) readFile(f); e.target.value = ''; };
+$('#btnSave').onclick = () => saveJson();
+$('#btnCopy').onclick = () => {
+  const data = JSON.stringify(serialize(), null, 2);
+  copyText(data, 'JSON copied to clipboard', () => showJsonModal(data));
+};
+
+function updateStatus() {
+  if (!state) return;
+  const hidden = state.linkTypes.filter(t => !t.visible).length;
+  $('#status').textContent = `${state.nodes.length} nodes · ${state.links.length} links${hidden ? ` · ${hidden} type(s) hidden` : ''}`;
+}
+
+/* ---------- file I/O ---------- */
+function fileName() {
+  return ((state.title || 'node-board').trim().replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, '-') || 'node-board') + '.json';
+}
+async function saveJson() {
+  const data = JSON.stringify(serialize(), null, 2), name = fileName();
+  let dl = null;
+  if (window.claude && typeof window.claude.use === 'function') {
+    try { dl = await window.claude.use('downloads'); } catch (e) { dl = null; }
+    if (!dl) return showJsonModal(data, 'Saving files isn\'t available in this view. Copy the JSON below and save it as a .json file.');
+    try { await dl.save({filename: name, data}); toast('Saved ' + name); }
+    catch (err) {
+      const code = err && err.code;
+      if (code === 'declined') toast('Save cancelled');
+      else if (code === 'rate_limited') toast('A save prompt is already open');
+      else showJsonModal(data, 'Couldn\'t save the file here. Copy the JSON below instead.');
+    }
+    return;
+  }
+  // Standalone (opened as a local file / own host): plain browser download
+  try {
+    const url = URL.createObjectURL(new Blob([data], {type: 'application/json'}));
+    const a = document.createElement('a'); a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast('Saved ' + name);
+  } catch (e) { showJsonModal(data); }
+}
+function readFile(f) {
+  const r = new FileReader();
+  r.onload = () => {
+    try { loadDoc(normalize(JSON.parse(r.result)), true); toast('Opened ' + f.name); }
+    catch (err) { modal({title: 'Couldn\'t open that file', html: esc(err.message || String(err)), buttons: [{label: 'OK'}]}); }
+  };
+  r.readAsText(f);
+}
+wrap.addEventListener('dragover', e => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); wrap.classList.add('dropping'); } });
+wrap.addEventListener('dragleave', () => wrap.classList.remove('dropping'));
+wrap.addEventListener('drop', e => { e.preventDefault(); wrap.classList.remove('dropping'); const f = e.dataTransfer.files[0]; if (f) readFile(f); });
+
+function loadDoc(doc, fit) {
+  state = doc; sel = null; activeTypeId = state.defaultLinkTypeId;
+  $('#docTitle').value = state.title;
+  renderTypeSelect();
+  if (state.view && !fit) view = {...state.view};
+  renderAll();
+  if (fit || !state.view) requestAnimationFrame(fitView);
+  persist();
+}
+
+/* ---------- ui bits ---------- */
+function modal({title, html, buttons}) {
+  const m = $('#modal');
+  m.innerHTML = `<div class="card" role="dialog" aria-modal="true"><h3>${esc(title)}</h3><div class="mbody">${html}</div>
+    <div class="mbtns">${buttons.map((b, i) => `<button data-i="${i}" class="${b.cls || ''}">${esc(b.label)}</button>`).join('')}</div></div>`;
+  m.hidden = false;
+  m.querySelectorAll('[data-i]').forEach(btn => btn.onclick = () => { const b = buttons[+btn.dataset.i]; m.hidden = true; if (b.onClick) b.onClick(); });
+  m.onclick = e => { if (e.target === m) m.hidden = true; };
+  const last = m.querySelector('.mbtns button:last-child'); if (last) last.focus();
+}
+function showJsonModal(data, msg) {
+  modal({title: 'Board JSON', html: `${msg ? `<p style="margin:0 0 8px">${esc(msg)}</p>` : ''}<textarea id="jsonOut" readonly>${esc(data)}</textarea>`,
+    buttons: [{label: 'Close'}]});
+  const ta = $('#jsonOut'); ta.focus(); ta.select();
+}
+function copyText(text, okMsg, onFail) {
+  const fail = () => { if (onFail) onFail(); else toast('Couldn\'t copy — select and copy manually'); };
+  try { navigator.clipboard.writeText(text).then(() => toast(okMsg), fail); } catch (e) { fail(); }
+}
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), 2200);
+}
+
+/* ---------- keyboard ---------- */
+document.addEventListener('keydown', e => {
+  if (!$('#modal').hidden) { if (e.key === 'Escape') $('#modal').hidden = true; return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveJson(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') { e.preventDefault(); $('#fileInput').click(); return; }
+  const a = document.activeElement;
+  if (a && (['INPUT', 'TEXTAREA', 'SELECT'].includes(a.tagName) || a.isContentEditable)) {
+    if (e.key === 'Escape') a.blur();
+    return;
+  }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if ((e.key === 'Delete' || e.key === 'Backspace') && sel) { e.preventDefault(); sel.kind === 'node' ? deleteNode(sel.id) : deleteLink(sel.id); }
+  else if (e.key === 'Escape') select(null);
+  else if (e.key === 'n' || e.key === 'N') { e.preventDefault(); addNodeCenter(); }
+  else if (e.key === 'f' || e.key === 'F') fitView();
+});
+window.addEventListener('resize', () => renderCanvas());
+
+/* ---------- boot ---------- */
+let initial = null;
+try { const raw = localStorage.getItem(STORE_KEY); if (raw) initial = normalize(JSON.parse(raw)); } catch (e) { initial = null; }
+loadDoc(initial || sampleDoc(), !initial);
+})();
+</script>
+</body>
+</html>
