@@ -22,4 +22,5 @@ Ideas go here first. Move items to **Done** when they ship.
 - [x] Hierarchy: roots, levels counted along chosen link types, auto-layout, sorted outline
 - [x] Save/load JSON, plus browser autosave
 - [x] Node attributes: board-level definitions (text or picklist with colored options), with per-node values in Inspect. Save format v2.
+- [x] Duplicate a node (new GUID; copies properties, attributes and all its links)
 - [x] Renamed to Nodle (format `nodle`, still loads `node-board` v1 files)

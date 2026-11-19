@@ -470,6 +470,18 @@ function addLink(from, to, typeId, name = '') {
   persist();
   return l;
 }
+// copy of a node: new GUID, " copy" name, same properties and attributes, and a copy of every link in or out
+function duplicateNode(id) {
+  const src = nodeById(id); if (!src) return;
+  const attrs = dict(); for (const k in src.attributes) attrs[k] = src.attributes[k];
+  const n = {...src, id: uid(), name: src.name + ' copy', x: src.x + 30, y: src.y + 30, attributes: attrs};
+  state.nodes.push(n);
+  const links = state.links.filter(l => l.from === id || l.to === id);
+  for (const l of links) state.links.push({...l, id: uid(), from: l.from === id ? n.id : l.from, to: l.to === id ? n.id : l.to});
+  select('node', n.id, {tab: true});
+  persist(); renderAll();
+  toast(links.length ? `Duplicated with ${links.length} link(s)` : 'Duplicated');
+}
 function deleteNode(id) {
   state.nodes = state.nodes.filter(n => n.id !== id);
   state.links = state.links.filter(l => l.from !== id && l.to !== id);
@@ -690,6 +702,7 @@ function renderInspector() {
     <li><b>Add node:</b> double-click the canvas, the <b>+ Node</b> button, or <kbd>N</kbd></li>
     <li><b>Link:</b> drag a node's colored ● handle onto another node. The type comes from <b>New links</b> in the toolbar.</li>
     <li><b>Pan:</b> drag empty space · <b>Zoom:</b> scroll / pinch · <kbd>F</kbd> fit all</li>
+    <li><b>Duplicate node:</b> <kbd>Ctrl/⌘ D</kbd> (copies its links too)</li>
     <li><b>Delete:</b> <kbd>Del</kbd> / <kbd>Backspace</kbd> · <kbd>Esc</kbd> deselect</li>
     <li><b>Save:</b> <kbd>Ctrl/⌘ S</kbd> · open a file or drop a .json onto the canvas</li>
   </ul>
@@ -731,7 +744,7 @@ function renderNodeInspector(el, n) {
     <div class="row"><select id="alType">${typeOptions(activeTypeId)}</select></div>
     <div class="row"><input id="alName" placeholder="Link name (optional)"><button id="bAddLink"${hasOthers ? '' : ' disabled'}>Add link</button></div>
   </div>
-  <div class="danger-row"><button class="danger" id="bDelNode">Delete node</button></div>`;
+  <div class="danger-row row"><button id="bDupNode" title="Duplicate node with its links (Ctrl/⌘ D)">Duplicate</button><span class="spacer"></span><button class="danger" id="bDelNode">Delete node</button></div>`;
 
   $('#bCopyGuid').onclick = () => copyText(n.id, 'GUID copied');
   $('#iName').oninput = e => { n.name = e.target.value; renderCanvas(); persist(); };
@@ -760,6 +773,7 @@ function renderNodeInspector(el, n) {
   };
   $('#bAddLink').onclick = add;
   $('#alName').onkeydown = e => { if (e.key === 'Enter') add(); };
+  $('#bDupNode').onclick = () => duplicateNode(n.id);
   $('#bDelNode').onclick = () => deleteNode(n.id);
 }
 
@@ -1022,6 +1036,7 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape') a.blur();
     return;
   }
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'd' && sel && sel.kind === 'node') { e.preventDefault(); duplicateNode(sel.id); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if ((e.key === 'Delete' || e.key === 'Backspace') && sel) { e.preventDefault(); sel.kind === 'node' ? deleteNode(sel.id) : deleteLink(sel.id); }
   else if (e.key === 'Escape') select(null);

@@ -19,7 +19,7 @@ Everything is in `index.html`: the `<style>` block, then the markup, then one `<
 | geometry | `toWorld(e)`, `clipToRect()` |
 | hierarchy | `computeHierarchy()`, `applyHierarchyLayout()` |
 | canvas rendering | `renderCanvas()` (SVG: links layer, then nodes layer) |
-| mutations | `addNode`, `addLink`, `deleteNode`, `deleteLink`, `addLinkType`, `deleteLinkType`, `addAttribute`, `deleteAttribute`, `moveAttribute`, `addOption`, `deleteOption` |
+| mutations | `addNode`, `addLink`, `duplicateNode`, `deleteNode`, `deleteLink`, `addLinkType`, `deleteLinkType`, `addAttribute`, `deleteAttribute`, `moveAttribute`, `addOption`, `deleteOption` |
 | selection & view | `select(kind, id, {tab})`, `centerOn`, `fitView`, `zoomBy` |
 | pointer interaction | pointerdown/move/up on the SVG: node drag, pan, link drag from `.handle` |
 | sidebar | `renderSidebar()` → `renderInspector()` / `renderTypes()` / `renderAttributes()` / `renderOutline()` |
