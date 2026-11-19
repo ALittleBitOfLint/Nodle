@@ -22,6 +22,7 @@ Open `index.html` in any modern browser. That's it.
 | Link nodes | Drag the ● handle onto another node |
 | Pan / zoom | Drag empty space / scroll (pinch on a trackpad) |
 | Fit everything | `F` or **Fit** |
+| Duplicate node (with its links) | `Ctrl/⌘ D` · **Duplicate** in the node panel |
 | Delete selection | `Del` / `Backspace` |
 | Save / Open | `Ctrl/⌘ S` / `Ctrl/⌘ O` |
 
