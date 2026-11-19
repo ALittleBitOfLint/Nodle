@@ -19,22 +19,23 @@ Everything is in `index.html`: the `<style>` block, then the markup, then one `<
 | geometry | `toWorld(e)`, `clipToRect()` |
 | hierarchy | `computeHierarchy()`, `applyHierarchyLayout()` |
 | canvas rendering | `renderCanvas()` (SVG: links layer, then nodes layer) |
-| mutations | `addNode`, `addLink`, `deleteNode`, `deleteLink`, `addLinkType`, `deleteLinkType` |
+| mutations | `addNode`, `addLink`, `deleteNode`, `deleteLink`, `addLinkType`, `deleteLinkType`, `addAttribute`, `deleteAttribute`, `moveAttribute`, `addOption`, `deleteOption` |
 | selection & view | `select(kind, id, {tab})`, `centerOn`, `fitView`, `zoomBy` |
 | pointer interaction | pointerdown/move/up on the SVG: node drag, pan, link drag from `.handle` |
-| sidebar | `renderSidebar()` → `renderInspector()` / `renderTypes()` / `renderOutline()` |
+| sidebar | `renderSidebar()` → `renderInspector()` / `renderTypes()` / `renderAttributes()` / `renderOutline()` |
 | toolbar & file I/O | `saveJson()`, `readFile()`, `loadDoc()` |
 | ui bits | `modal()`, `toast()`, `copyText()` |
 
-Sidebar tabs are `inspect`, `types` (link types) and `outline` (hierarchy).
+Sidebar tabs are `inspect`, `types` (link types), `attrs` (attribute definitions) and `outline` (hierarchy).
 
 ## Data model
 ```js
 {
-  format: 'node-board', version: 1, title,
+  format: 'nodle', version: 2, title,   // v1 files used format 'node-board'; both load
   defaultLinkTypeId,                 // the "main" link type; can't be deleted
   linkTypes: [{ id, name, color, visible }],
-  nodes:     [{ id, name, description, color, isRoot, x, y }],   // x,y = top-left in world coordinates
+  attributes: [{ id, name, kind: 'text'|'picklist', options: [{ id, label, color }] }],  // array order = display order
+  nodes:     [{ id, name, description, color, isRoot, x, y, attributes: { [attrId]: string } }],   // x,y = top-left in world coordinates
   links:     [{ id, name, from, to, typeId }],                   // directed from → to; no self-links
   hierarchy: { typeIds: [] },        // link types followed when computing levels
   ui: { showLevels }, view: { x, y, k }
@@ -42,6 +43,13 @@ Sidebar tabs are `inspect`, `types` (link types) and `outline` (hierarchy).
 ```
 - IDs are strings (GUIDs from `uid()`). Treat them as opaque, because loaded files can contain any string.
 - Colors are `#rrggbb`. Validate with `isHex()` before putting them into markup.
+- Attributes:
+  - A node value is the text itself for `text`, or an **option id** for `picklist`, so renaming an option doesn't break values. "Not set" means the key is missing, never `''`.
+  - `node.attributes` is created with `dict()` (`Object.create(null)`), so any attribute id, even `__proto__`, is a safe key.
+  - Options are shown sorted by label (`byLabel`). Their stored order doesn't matter, and each gets a palette color when created.
+  - `options` is always `[]` for text attributes.
+  - An attribute's kind can't be changed while any node has a value for it.
+  - Deleting an attribute or option clears the matching values, after a confirm modal if any nodes are affected.
 
 ## Save format and migrations
 - `normalize(doc)` is the **only** way data gets in, whether from a file, localStorage or the sample board. It validates every field, fills in defaults and drops broken references (such as a link to a missing node).
@@ -50,7 +58,7 @@ Sidebar tabs are `inspect`, `types` (link types) and `outline` (hierarchy).
 
 ## Conventions
 - **Escape every user string** with `esc()` before it goes into an HTML or SVG template string. Names, descriptions and IDs all come from user files.
-- After any data change, call `persist()` (autosaves to localStorage under `nodeboard.v1` and updates the status bar).
+- After any data change, call `persist()` (autosaves to localStorage under `nodle.board` and updates the status bar).
 - Rendering is "rebuild the layer from state":
   - `renderCanvas()` for visual changes, including on every pointermove during a drag
   - `renderAll()` when the structure changes (anything is added or deleted)

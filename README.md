@@ -11,6 +11,7 @@ Open `index.html` in any modern browser. That's it.
 - **Nodes:** GUID (read-only), name, description, color
 - **Links:** directed, named, typed. Drag a node's ● handle onto another node, or add links from the node panel.
 - **Link types:** any number, each with a name and color. One default ("main") type. Show/hide types on the canvas.
+- **Attributes:** define fields for every node in the Attributes tab: free text, or a picklist with colored options. Set each node's values in Inspect.
 - **Hierarchy:** mark root nodes, choose which link types to follow, and see levels (L0, L1, …) counted from the roots. One click lays the board out by level.
 - **Save / Open:** boards save as `.json` files. Open a file or drop it onto the canvas. Work is also autosaved in the browser.
 
@@ -25,7 +26,7 @@ Open `index.html` in any modern browser. That's it.
 | Save / Open | `Ctrl/⌘ S` / `Ctrl/⌘ O` |
 
 ## File format
-A board is a single JSON object: `nodes`, `links`, `linkTypes`, plus a little view and settings state. See `CLAUDE.md` → *Data model*. Older files always remain loadable.
+A board is a single JSON object: `nodes`, `links`, `linkTypes`, `attributes`, plus a little view and settings state. See `CLAUDE.md` → *Data model*. Older files always remain loadable.
 
 ## Roadmap
 See [`ROADMAP.md`](ROADMAP.md).
